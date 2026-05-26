@@ -1,0 +1,8 @@
+{
+  "name": "pupa-tienda-functions",
+  "version": "1.0.0",
+  "description": "Netlify Functions para Pupa Tienda",
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

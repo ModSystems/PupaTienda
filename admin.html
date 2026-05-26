@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Pupa Tienda</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* ============================================================
+       VARIABLES
+    ============================================================ */
+    :root {
+      --bg:       #0F1117;
+      --surface:  #1A1D27;
+      --surface2: #242838;
+      --border:   #2E3348;
+      --rose:     #E8637A;
+      --rose-d:   #C94C63;
+      --sky:      #4FA8D5;
+      --mint:     #2EB87A;
+      --warn:     #E07A10;
+      --error:    #D93A3A;
+      --text:     #E8EAF0;
+      --text-s:   #8890A8;
+      --radius:   12px;
+      --radius-s: 8px;
+      --sidebar:  240px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    button { cursor: pointer; border: none; font-family: inherit; }
+    input, select, textarea { font-family: inherit; }
+
+    /* ============================================================
+       LOGIN SCREEN
+    ============================================================ */
+    #loginScreen {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 36px;
+      width: min(400px, 100%);
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    }
+    .login-logo {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.5rem; font-weight: 800;
+      color: var(--rose); margin-bottom: 6px;
+    }
+    .login-sub { color: var(--text-s); font-size: .88rem; margin-bottom: 28px; }
+    .login-field { margin-bottom: 16px; }
+    .login-field label {
+      display: block; font-size: .82rem;
+      color: var(--text-s); margin-bottom: 6px; font-weight: 500;
+    }
+    .login-field input {
+      width: 100%; padding: 11px 14px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: .95rem;
+      outline: none; transition: border-color .2s;
+    }
+    .login-field input:focus { border-color: var(--rose); }
+    .login-btn {
+      width: 100%; padding: 13px;
+      background: var(--rose); color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 1rem;
+      border-radius: var(--radius-s);
+      transition: background .2s;
+      margin-top: 4px;
+    }
+    .login-btn:hover { background: var(--rose-d); }
+    .login-error {
+      color: var(--error); font-size: .83rem;
+      margin-top: 10px; text-align: center;
+      min-height: 20px;
+    }
+
+    /* ============================================================
+       LAYOUT
+    ============================================================ */
+    #appShell { display: none; min-height: 100vh; }
+    #appShell.visible { display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; bottom: 0;
+      z-index: 50;
+    }
+    .sidebar-logo {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.15rem; font-weight: 800;
+      color: var(--rose);
+    }
+    .sidebar-logo .sub {
+      font-size: .75rem; color: var(--text-s); margin-top: 2px;
+    }
+    .sidebar-nav {
+      flex: 1; padding: 16px 10px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-s);
+      font-size: .9rem; font-weight: 500;
+      color: var(--text-s);
+      cursor: pointer;
+      transition: all .18s;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: rgba(232,99,122,.15); color: var(--rose); }
+    .nav-item .icon { font-size: 1.1rem; width: 22px; }
+    .sidebar-footer {
+      padding: 16px 10px;
+      border-top: 1px solid var(--border);
+    }
+    .logout-btn {
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-s);
+      color: var(--text-s); font-size: .88rem;
+      transition: all .18s;
+      background: none; border: none;
+    }
+    .logout-btn:hover { background: rgba(217,58,58,.1); color: var(--error); }
+
+    /* ── Main area ── */
+    .main {
+      margin-left: var(--sidebar);
+      flex: 1; display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    .topbar {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface);
+      position: sticky; top: 0; z-index: 40;
+    }
+    .topbar-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.25rem; font-weight: 700;
+    }
+    .topbar-user { font-size: .83rem; color: var(--text-s); }
+    .content { padding: 28px; flex: 1; }
+
+    /* ============================================================
+       STATS CARDS
+    ============================================================ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .stat-icon { font-size: 1.5rem; }
+    .stat-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.9rem; font-weight: 800;
+      line-height: 1;
+    }
+    .stat-label { font-size: .8rem; color: var(--text-s); }
+    .stat-card.warn .stat-val { color: var(--warn); }
+    .stat-card.error .stat-val { color: var(--error); }
+    .stat-card.good  .stat-val { color: var(--mint); }
+
+    /* ============================================================
+       SECCIÓN PRODUCTOS
+    ============================================================ */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .section-header h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem; font-weight: 700;
+    }
+    .btn-primary {
+      padding: 10px 18px;
+      background: var(--rose); color: #fff;
+      border-radius: var(--radius-s);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: .88rem;
+      display: flex; align-items: center; gap: 7px;
+      transition: background .2s;
+    }
+    .btn-primary:hover { background: var(--rose-d); }
+
+    /* Filtros tabla */
+    .table-filters {
+      display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .tf-input {
+      flex: 1; min-width: 200px;
+      padding: 9px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: .88rem;
+      outline: none; transition: border-color .2s;
+    }
+    .tf-input:focus { border-color: var(--rose); }
+    .tf-select {
+      padding: 9px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: .88rem;
+      outline: none; cursor: pointer;
+    }
+
+    /* Tabla */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+    }
+    thead th {
+      padding: 12px 16px;
+      text-align: left; font-size: .78rem;
+      color: var(--text-s); font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 12px 16px; font-size: .88rem; vertical-align: middle; }
+
+    .prod-thumb {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-s); object-fit: cover;
+      background: var(--surface2);
+    }
+    .prod-name-cell { font-weight: 600; }
+    .prod-desc-cell { color: var(--text-s); font-size: .8rem; max-width: 200px; }
+
+    .badge {
+      padding: 3px 10px; border-radius: 50px;
+      font-size: .75rem; font-weight: 600; display: inline-block;
+    }
+    .badge-active  { background: rgba(46,184,122,.15); color: var(--mint); }
+    .badge-paused  { background: rgba(136,144,168,.15); color: var(--text-s); }
+    .badge-low     { background: rgba(224,122,16,.15);  color: var(--warn); }
+    .badge-out     { background: rgba(217,58,58,.15);   color: var(--error); }
+
+    .stock-inline {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stock-num-input {
+      width: 60px; padding: 5px 8px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text);
+      font-size: .88rem; text-align: center; outline: none;
+    }
+    .stock-num-input:focus { border-color: var(--rose); }
+    .stock-save-btn {
+      padding: 5px 10px;
+      background: var(--mint); color: #fff;
+      border-radius: var(--radius-s); font-size: .78rem; font-weight: 600;
+      transition: opacity .2s;
+    }
+    .stock-save-btn:hover { opacity: .85; }
+
+    .actions { display: flex; gap: 6px; }
+    .act-btn {
+      padding: 6px 10px; border-radius: var(--radius-s);
+      font-size: .78rem; font-weight: 600;
+      transition: opacity .2s;
+    }
+    .act-btn:hover { opacity: .75; }
+    .act-edit   { background: rgba(79,168,213,.15); color: var(--sky); }
+    .act-toggle { background: rgba(136,144,168,.15); color: var(--text-s); }
+    .act-delete { background: rgba(217,58,58,.12);  color: var(--error); }
+    .act-toggle.active { background: rgba(46,184,122,.15); color: var(--mint); }
+
+    /* Loading rows */
+    .loading-row td {
+      text-align: center; padding: 40px;
+      color: var(--text-s); font-size: .9rem;
+    }
+    .empty-row td {
+      text-align: center; padding: 40px;
+      color: var(--text-s); font-size: .9rem;
+    }
+
+    /* ============================================================
+       MODAL PRODUCTO (Agregar / Editar)
+    ============================================================ */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 200;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 20px; padding-top: 40px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s;
+      overflow-y: auto;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      width: min(560px, 100%);
+      padding: 30px;
+      transform: translateY(-12px);
+      transition: transform .3s;
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    }
+    .modal-overlay.show .modal { transform: translateY(0); }
+    .modal-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.2rem; font-weight: 700;
+      margin-bottom: 22px;
+    }
+
+    .form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    }
+    .form-grid .span2 { grid-column: span 2; }
+    .fg { display: flex; flex-direction: column; gap: 5px; }
+    .fg label {
+      font-size: .8rem; color: var(--text-s); font-weight: 500;
+    }
+    .fg input, .fg select, .fg textarea {
+      padding: 10px 13px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: .9rem;
+      outline: none; transition: border-color .2s;
+    }
+    .fg input:focus, .fg select:focus, .fg textarea:focus {
+      border-color: var(--rose);
+    }
+    .fg.err input, .fg.err select { border-color: var(--error); }
+    .fg .err-msg { color: var(--error); font-size: .78rem; display: none; }
+    .fg.err .err-msg { display: block; }
+    .fg .hint { color: var(--text-s); font-size: .76rem; }
+
+    /* Image upload */
+    .img-upload-wrap {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 20px; text-align: center;
+      cursor: pointer; transition: border-color .2s;
+      position: relative;
+    }
+    .img-upload-wrap:hover { border-color: var(--rose); }
+    .img-upload-wrap input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+      border: none; background: none;
+    }
+    .img-upload-wrap .upload-icon { font-size: 2rem; margin-bottom: 6px; }
+    .img-upload-wrap .upload-text { font-size: .83rem; color: var(--text-s); }
+    .img-preview {
+      width: 100%; max-height: 160px; object-fit: cover;
+      border-radius: var(--radius-s); margin-top: 10px;
+      display: none;
+    }
+    .img-preview.show { display: block; }
+    .upload-progress {
+      margin-top: 8px; height: 4px;
+      background: var(--border); border-radius: 2px; overflow: hidden;
+      display: none;
+    }
+    .upload-progress.show { display: block; }
+    .upload-progress-bar {
+      height: 100%; background: var(--rose);
+      border-radius: 2px; width: 0%;
+      transition: width .3s;
+    }
+
+    .modal-footer {
+      display: flex; gap: 10px; margin-top: 22px;
+      justify-content: flex-end;
+    }
+    .btn-cancel {
+      padding: 10px 18px;
+      border: 1px solid var(--border); color: var(--text-s);
+      border-radius: var(--radius-s);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500; background: none;
+      transition: background .2s;
+    }
+    .btn-cancel:hover { background: var(--surface2); }
+    .btn-save {
+      padding: 10px 22px;
+      background: var(--rose); color: #fff;
+      border-radius: var(--radius-s);
+      font-family: 'Syne', sans-serif; font-weight: 700;
+      transition: background .2s;
+    }
+    .btn-save:hover:not(:disabled) { background: var(--rose-d); }
+    .btn-save:disabled { background: var(--border); cursor: not-allowed; color: var(--text-s); }
+
+    /* ============================================================
+       MODAL CONFIRMAR ELIMINAR
+    ============================================================ */
+    .confirm-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 300;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+    }
+    .confirm-overlay.show { opacity: 1; pointer-events: all; }
+    .confirm-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px; text-align: center;
+      width: min(360px, 100%);
+    }
+    .confirm-box .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .confirm-box h3 {
+      font-family: 'Syne', sans-serif; font-size: 1rem;
+      margin-bottom: 6px;
+    }
+    .confirm-box p { color: var(--text-s); font-size: .88rem; margin-bottom: 20px; }
+    .confirm-btns { display: flex; gap: 10px; justify-content: center; }
+    .btn-del {
+      padding: 10px 22px;
+      background: var(--error); color: #fff;
+      border-radius: var(--radius-s);
+      font-family: 'Syne', sans-serif; font-weight: 700;
+      transition: opacity .2s;
+    }
+    .btn-del:hover { opacity: .85; }
+
+    /* ============================================================
+       TOAST
+    ============================================================ */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      padding: 12px 20px; border-radius: 10px;
+      font-weight: 600; font-size: .88rem;
+      z-index: 9999; opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .3s, transform .3s;
+      max-width: 320px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--mint); color: #fff; }
+    .toast.error   { background: var(--error); color: #fff; }
+    .toast.warning { background: var(--warn); color: #fff; }
+
+
+    /* ============================================================
+       SECCIÓN CATEGORÍAS
+    ============================================================ */
+    .cat-list-admin {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-top: 16px;
+    }
+    .cat-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-s);
+      padding: 12px 16px;
+      font-size: .9rem; font-weight: 500;
+    }
+    .cat-item .cat-name { display: flex; align-items: center; gap: 8px; }
+    .cat-item .cat-count { font-size: .78rem; color: var(--text-s); }
+    .cat-del-btn {
+      padding: 5px 12px;
+      background: rgba(217,58,58,.12); color: var(--error);
+      border-radius: var(--radius-s); font-size: .78rem; font-weight: 600;
+      transition: opacity .2s;
+    }
+    .cat-del-btn:hover { opacity: .75; }
+    .cat-add-row {
+      display: flex; gap: 10px; margin-top: 16px;
+    }
+    .cat-add-row input {
+      flex: 1; padding: 10px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: .9rem;
+      outline: none; transition: border-color .2s;
+    }
+    .cat-add-row input:focus { border-color: var(--rose); }
+    .cat-empty {
+      text-align: center; padding: 32px;
+      color: var(--text-s); font-size: .88rem;
+    }
+    /* ============================================================
+       SPINNER
+    ============================================================ */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: inline-block;
+    }
+
+    /* Footer crédito */
+    .admin-credit {
+      padding: 16px 28px;
+      color: var(--text-s); font-size: .75rem;
+      border-top: 1px solid var(--border);
+    }
+
+
+    /* ============================================================
+       PRODUCT CARDS MOBILE (admin)
+    ============================================================ */
+    .prod-card-admin {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .pca-top {
+      display: flex; gap: 12px; align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .pca-img {
+      width: 60px; height: 60px;
+      border-radius: var(--radius-s); object-fit: cover;
+      background: var(--surface2); flex-shrink: 0;
+    }
+    .pca-info { flex: 1; min-width: 0; }
+    .pca-name { font-weight: 700; font-size: .9rem; line-height: 1.2; }
+    .pca-cat  { font-size: .76rem; color: var(--text-s); margin-top: 2px; }
+    .pca-price { color: var(--rose); font-weight: 700; font-size: .95rem; margin-top: 3px; }
+    .pca-talle { font-size: .75rem; color: var(--text-s); }
+    .pca-stock {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .pca-actions {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .pca-actions .act-btn { flex: 1; text-align: center; min-width: 70px; }
+
+    /* Multi-foto preview en modal */
+    .fotos-preview-grid {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+    }
+    .foto-preview-item {
+      position: relative; width: 72px; height: 72px;
+    }
+    .foto-preview-item img {
+      width: 100%; height: 100%;
+      object-fit: cover; border-radius: var(--radius-s);
+    }
+    .foto-del-btn {
+      position: absolute; top: -6px; right: -6px;
+      width: 20px; height: 20px;
+      background: var(--error); color: #fff;
+      border-radius: 50%; font-size: .75rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border: none;
+    }
+    .upload-multi-btn {
+      width: 72px; height: 72px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-s);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-s); font-size: .7rem; gap: 3px;
+      position: relative; transition: border-color .2s;
+    }
+    .upload-multi-btn:hover { border-color: var(--rose); color: var(--rose); }
+    .upload-multi-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-multi-btn .plus { font-size: 1.4rem; line-height: 1; }
+
+    /* ============================================================
+       TALLES — CHIPS
+    ============================================================ */
+    .talles-chips {
+      display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px;
+    }
+    .talle-chip {
+      padding: 5px 13px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      font-size: .82rem; font-weight: 600;
+      color: var(--text-s);
+      cursor: pointer; transition: all .15s;
+      background: var(--bg);
+      user-select: none;
+    }
+    .talle-chip:hover  { border-color: var(--rose); color: var(--rose); }
+    .talle-chip.sel    { background: var(--rose); border-color: var(--rose); color: #fff; }
+    .talle-custom-row  { display: flex; gap: 8px; margin-top: 8px; }
+    .talle-custom-row input {
+      flex: 1; padding: 7px 12px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: var(--radius-s); color: var(--text); font-size: .85rem; outline: none;
+    }
+    .talle-custom-row input:focus { border-color: var(--rose); }
+    .talle-custom-row button {
+      padding: 7px 14px;
+      background: var(--surface2); color: var(--text);
+      border-radius: var(--radius-s); font-size: .82rem; font-weight: 600;
+    }
+
+    /* ============================================================
+       MOBILE NAVBAR (bottom bar)
+    ============================================================ */
+    .mobile-nav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      z-index: 200;
+      padding: 6px 0 env(safe-area-inset-bottom, 6px);
+    }
+    .mobile-nav-inner {
+      display: flex; justify-content: space-around; align-items: center;
+    }
+    .mnav-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 6px 14px;
+      border-radius: var(--radius-s);
+      background: none; border: none;
+      color: var(--text-s); font-size: .68rem; font-weight: 600;
+      transition: color .15s;
+      cursor: pointer;
+    }
+    .mnav-btn .micon { font-size: 1.3rem; }
+    .mnav-btn.active { color: var(--rose); }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 768px) {
+      :root { --sidebar: 0px; }
+      .sidebar { display: none; }
+      .mobile-nav { display: block; }
+      .main { margin-left: 0; padding-bottom: 70px; }
+      .content { padding: 16px; }
+      .topbar { padding: 14px 16px; }
+      .topbar-user { display: none; }
+
+      /* tabla scroll horizontal */
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 600px; }
+
+      /* stats en 2 columnas */
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+
+      /* modal full screen */
+      .modal-overlay { padding: 0; align-items: flex-end; }
+      .modal {
+        border-radius: 20px 20px 0 0;
+        max-height: 92vh;
+        overflow-y: auto;
+        padding: 24px 18px;
+        width: 100%;
+      }
+
+      /* form una columna */
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid .span2 { grid-column: span 1; }
+
+      /* section-header apilado */
+      .section-header { flex-direction: column; align-items: flex-start; }
+
+      /* filtros tabla en columna */
+      .table-filters { flex-direction: column; }
+      .tf-input, .tf-select { width: 100%; }
+
+      /* actions en tabla más compactas */
+      .actions { flex-wrap: wrap; }
+      .act-btn { font-size: .72rem; padding: 5px 8px; }
+
+      /* cat add row apilado */
+      .cat-add-row { flex-direction: column; }
+    }
+    @media (max-width: 768px) {
+  #tableWrap {
+    display: none !important;
+  }
+  #mobileCards {
+    display: block !important;
+  }
+}
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     🔧 FIREBASE CONFIG — completá con tus datos
+============================================================ -->
+<script>
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDS6-VKXjtLy0iKobLP3xOGcs3pnIaR2W8",
+    authDomain: "pupatienda-c9e56.firebaseapp.com",
+    projectId: "pupatienda-c9e56",
+    storageBucket: "pupatienda-c9e56.firebasestorage.app",
+    messagingSenderId: "361013495379",
+    appId: "1:361013495379:web:5b7f867f951261f60868a6"
+};
+const CONFIG = {
+  tienda:         "Pupa Tienda",
+  precio_minimo:  500,
+  moneda:         "$",
+};
+
+// Firebase se inicializa en el script principal
+// para asegurar que las funciones estén disponibles aunque Firebase tarde en cargar
+// ImgBB key movida a variable de entorno en Netlify (IMGBB_API_KEY)
+// Las imágenes se suben a través de /.netlify/functions/subir-imagen
+</script>
+
+<!-- ============================================================
+     LOGIN
+============================================================ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🛍️ Pupa Tienda</div>
+    <div class="login-sub">Panel de administración</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@ejemplo.com"
+             onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="loginError"></div>
+    <div style="margin-top:20px;font-size:.75rem;color:var(--text-s);text-align:center">
+      Hecho por <strong style="color:var(--rose)">Mod Systems</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP SHELL
+============================================================ -->
+<div id="appShell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="name">🛍️ Pupa Tienda</div>
+      <div class="sub">Admin Panel</div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="showSection('dashboard')" id="nav-dashboard">
+        <span class="icon">📊</span> Dashboard
+      </button>
+      <button class="nav-item" onclick="showSection('productos')" id="nav-productos">
+        <span class="icon">👗</span> Productos
+      </button>
+      <button class="nav-item" onclick="showSection('categorias')" id="nav-categorias">
+        <span class="icon">🏷️</span> Categorías
+      </button>
+      <button class="nav-item" onclick="showSection('talles')" id="nav-talles">
+        <span class="icon">📏</span> Talles
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div style="font-size:.73rem;color:var(--text-s);padding:0 12px 10px">
+        Hecho por <strong style="color:var(--rose)">Mod Systems</strong>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">
+        <span>🚪</span> Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div class="topbar-user" id="topbarUser"></div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── DASHBOARD ── -->
+      <div id="sectionDashboard">
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-val" id="statTotal">—</div>
+            <div class="stat-label">Productos totales</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-icon">✅</div>
+            <div class="stat-val" id="statActivos">—</div>
+            <div class="stat-label">Activos</div>
+          </div>
+          <div class="stat-card warn">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-val" id="statPoco">—</div>
+            <div class="stat-label">Stock bajo (≤3)</div>
+          </div>
+          <div class="stat-card error">
+            <div class="stat-icon">🚫</div>
+            <div class="stat-val" id="statAgotado">—</div>
+            <div class="stat-label">Sin stock</div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+          <h3 style="font-family:'Syne',sans-serif;font-size:1rem;margin-bottom:16px">Accesos rápidos</h3>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="btn-primary" onclick="showSection('productos');openProductModal()">
+              ➕ Nuevo producto
+            </button>
+            <a href="index.html" target="_blank"
+               style="padding:10px 18px;background:var(--surface2);color:var(--text);border-radius:var(--radius-s);font-size:.88rem;font-weight:500;display:flex;align-items:center;gap:7px">
+              🛍️ Ver tienda
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PRODUCTOS ── -->
+      <div id="sectionProductos" style="display:none">
+        <div class="section-header">
+          <h2>Productos</h2>
+          <button class="btn-primary" onclick="openProductModal()">
+            ➕ Agregar producto
+          </button>
+        </div>
+
+        <div class="table-filters">
+          <input class="tf-input" id="searchInput" type="text"
+                 placeholder="🔍 Buscar por nombre..." oninput="renderTable()" />
+          <select class="tf-select" id="catFilter" onchange="renderTable()">
+            <option value="">Todas las categorías</option>
+          </select>
+          <select class="tf-select" id="stockFilter" onchange="renderTable()">
+            <option value="">Todos los estados</option>
+            <option value="activo">Activos</option>
+            <option value="agotado">Sin stock</option>
+            <option value="bajo">Stock bajo</option>
+            <option value="pausado">Pausados</option>
+          </select>
+        </div>
+
+        <!-- Desktop: tabla | Mobile: cards -->
+        <div class="table-wrap" id="tableWrap">
+          <table id="desktopTable">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="productsTable">
+              <tr class="loading-row"><td colspan="7">Cargando productos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="mobileCards" style="display:none"></div>
+      </div>
+
+      <!-- ── CATEGORÍAS ── -->
+      <div id="sectionCategorias" style="display:none">
+        <div class="section-header">
+          <h2>Categorías</h2>
+        </div>
+        <p style="color:var(--text-s);font-size:.88rem;margin-bottom:16px">
+          Estas categorías aparecen en el selector al crear o editar un producto.
+          Podés agregar las que necesites y eliminar las que no usés.
+        </p>
+
+        <div class="cat-add-row">
+          <input type="text" id="inpNuevaCat" placeholder="Ej: Bebés 0–12m"
+                 maxlength="50"
+                 onkeydown="if(event.key==='Enter')agregarCategoria()" />
+          <button class="btn-primary" onclick="agregarCategoria()">➕ Agregar</button>
+        </div>
+
+        <div class="cat-list-admin" id="catListAdmin">
+          <div class="cat-empty">Cargando categorías...</div>
+        </div>
+      </div>
+
+      <!-- ── TALLES ── -->
+      <div id="sectionTalles" style="display:none">
+        <div class="section-header">
+          <h2>Talles predefinidos</h2>
+        </div>
+        <p style="color:var(--text-s);font-size:.88rem;margin-bottom:16px">
+          Al crear o editar un producto podés seleccionar talles de acá.
+          También podés escribir uno personalizado desde el formulario.
+        </p>
+        <div class="cat-add-row">
+          <input type="text" id="inpNuevoTalle" placeholder="Ej: RN, 3M, 6M, 1, 2, 3..."
+                 maxlength="20"
+                 onkeydown="if(event.key==='Enter')agregarTalle()" />
+          <button class="btn-primary" onclick="agregarTalle()">➕ Agregar</button>
+        </div>
+        <div class="cat-list-admin" id="talleListAdmin">
+          <div class="cat-empty">Cargando talles...</div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+
+    <div class="admin-credit">
+      Pupa Tienda Admin · Hecho por <strong style="color:var(--rose)">Mod Systems</strong>
+    </div>
+  </div><!-- /main -->
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mobile-nav" id="mobileNav">
+    <div class="mobile-nav-inner">
+      <button class="mnav-btn active" id="mnav-dashboard" onclick="showSection('dashboard')">
+        <span class="micon">📊</span>Dashboard
+      </button>
+      <button class="mnav-btn" id="mnav-productos" onclick="showSection('productos')">
+        <span class="micon">👗</span>Productos
+      </button>
+      <button class="mnav-btn" id="mnav-categorias" onclick="showSection('categorias')">
+        <span class="micon">🏷️</span>Categorías
+      </button>
+      <button class="mnav-btn" id="mnav-talles" onclick="showSection('talles')">
+        <span class="micon">📏</span>Talles
+      </button>
+      <button class="mnav-btn" id="mnav-logout" onclick="doLogout()">
+        <span class="micon">🚪</span>Salir
+      </button>
+    </div>
+  </nav>
+</div><!-- /appShell -->
+
+<!-- ============================================================
+     MODAL PRODUCTO
+============================================================ -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Agregar producto</div>
+    <div class="form-grid">
+
+      <div class="fg span2">
+        <label>Fotos del producto <span style="font-weight:400;color:var(--text-s)">(hasta 6)</span></label>
+        <div class="fotos-preview-grid" id="fotosPreviewGrid"></div>
+        <div class="upload-progress" id="uploadProgress" style="margin-top:8px">
+          <div class="upload-progress-bar" id="uploadProgressBar"></div>
+        </div>
+        <span class="hint" id="imgHint">Subí una o más fotos. La primera es la imagen principal.</span>
+      </div>
+
+      <div class="fg span2" id="fgNombre">
+        <label>Nombre del producto *</label>
+        <input type="text" id="inpNombre" placeholder="Ej: Body manga larga" />
+        <span class="err-msg">Requerido</span>
+      </div>
+
+      <div class="fg span2">
+        <label>Descripción</label>
+        <textarea id="inpDesc" rows="2" placeholder="Breve descripción del producto..."></textarea>
+      </div>
+
+      <div class="fg" id="fgCategoria">
+        <label>Categoría *</label>
+        <select id="inpCategoria">
+          <option value="">— Seleccioná una categoría —</option>
+        </select>
+        <span class="err-msg">Requerido</span>
+      </div>
+
+      <div class="fg span2">
+        <label>Talles disponibles</label>
+        <div class="talles-chips" id="tallesChips">
+          <span style="color:var(--text-s);font-size:.8rem">Cargando talles...</span>
+        </div>
+        <div class="talle-custom-row">
+          <input type="text" id="inpTalleCustom" placeholder="Agregar talle personalizado..." maxlength="20"
+                 onkeydown="if(event.key==='Enter'){agregarTalleCustom();return false}" />
+          <button onclick="agregarTalleCustom()">+ Agregar</button>
+        </div>
+        <input type="hidden" id="inpTalle" />
+      </div>
+
+      <div class="fg" id="fgPrecio">
+        <label>Precio ($) *</label>
+        <input type="number" id="inpPrecio" placeholder="0" min="0" />
+        <span class="err-msg" id="precioErrMsg">Precio inválido</span>
+        <span class="hint">Mínimo: $<span id="precioMin">${CONFIG.precio_minimo}</span></span>
+      </div>
+
+      <div class="fg" id="fgStock">
+        <label>Stock inicial *</label>
+        <input type="number" id="inpStock" placeholder="0" min="0" />
+        <span class="err-msg">Stock no puede ser negativo</span>
+      </div>
+
+      <div class="fg span2">
+        <label>Estado</label>
+        <select id="inpActivo">
+          <option value="true">✅ Activo (visible en tienda)</option>
+          <option value="false">⏸️ Pausado (oculto en tienda)</option>
+        </select>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeProductModal()">Cancelar</button>
+      <button class="btn-save" id="btnSave" onclick="saveProduct()">Guardar producto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL CONFIRMAR ELIMINAR
+============================================================ -->
+<div class="confirm-overlay" id="confirmDelete">
+  <div class="confirm-box">
+    <div class="icon">🗑️</div>
+    <h3>¿Eliminar producto?</h3>
+    <p id="confirmName">Esta acción no se puede deshacer.</p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-del" id="btnConfirmDel">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     APP JAVASCRIPT
+============================================================ -->
+<script>
+/* ────────────────────────────────────────────────────────────
+   ESTADO
+────────────────────────────────────────────────────────── */
+let productos = [];         // cache local de Firestore
+let editingId = null;       // null = nuevo, string = editando
+let fotosActuales = [];     // URLs de fotos del producto en edición
+let unsubscribeProducts = null;
+
+/* ────────────────────────────────────────────────────────────
+   HELPERS
+────────────────────────────────────────────────────── */
+const fmt = n => CONFIG.moneda + Number(n).toLocaleString('es-AR');
+
+function showToast(msg, type = "success", ms = 3000) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = "toast", ms);
+}
+
+/* ────────────────────────────────────────────────────────────
+   AUTH
+────────────────────────────────────────────────────── */
+
+const app = firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("appShell").classList.add("visible");
+    document.getElementById("topbarUser").textContent = user.email;
+    initRealtime();
+    initCategorias();
+    initTalles();
+  } else {
+    document.getElementById("loginScreen").style.display = "flex";
+    document.getElementById("appShell").classList.remove("visible");
+    if (unsubscribeProducts) unsubscribeProducts();
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass  = document.getElementById("loginPass").value;
+  const btn   = document.getElementById("loginBtn");
+  const err   = document.getElementById("loginError");
+
+  if (!email || !pass) { err.textContent = "Completá todos los campos."; return; }
+
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  err.textContent = "";
+
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) {
+    const msgs = {
+      "auth/user-not-found": "Usuario no encontrado.",
+      "auth/wrong-password": "Contraseña incorrecta.",
+      "auth/invalid-email":  "Email inválido.",
+      "auth/too-many-requests": "Demasiados intentos. Esperá unos minutos.",
+    };
+    err.textContent = msgs[e.code] || "Error al iniciar sesión.";
+    btn.innerHTML = "Ingresar";
+    btn.disabled = false;
+  }
+}
+
+async function doLogout() {
+  await auth.signOut();
+}
+
+/* ────────────────────────────────────────────────────────────
+   FIRESTORE — TIEMPO REAL
+────────────────────────────────────────────────────── */
+function initRealtime() {
+  unsubscribeProducts = db.collection("productos")
+    .orderBy("creadoEn", "desc")
+    .onSnapshot(snap => {
+      productos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStats();
+      renderTable();
+      updateCatFilter();
+    }, err => {
+      showToast("Error al cargar productos: " + err.message, "error");
+    });
+}
+
+/* ────────────────────────────────────────────────────────────
+   NAVEGACIÓN SECCIONES
+────────────────────────────────────────────────────── */
+function showSection(sec) {
+  ["dashboard","productos","categorias","talles"].forEach(s => {
+    const el = document.getElementById("section" + s.charAt(0).toUpperCase() + s.slice(1));
+    if (el) el.style.display = s === sec ? "" : "none";
+  });
+  // sidebar nav
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  const navEl = document.getElementById("nav-" + sec);
+  if (navEl) navEl.classList.add("active");
+  // mobile nav
+  document.querySelectorAll(".mnav-btn").forEach(n => n.classList.remove("active"));
+  const mnavEl = document.getElementById("mnav-" + sec);
+  if (mnavEl) mnavEl.classList.add("active");
+
+  const titles = { dashboard:"Dashboard", productos:"Productos", categorias:"Categorías", talles:"Talles" };
+  document.getElementById("topbarTitle").textContent = titles[sec] || sec;
+  window.scrollTo(0, 0);
+}
+
+/* ────────────────────────────────────────────────────────────
+   STATS DASHBOARD
+────────────────────────────────────────────────────── */
+function updateStats() {
+  const total   = productos.length;
+  const activos = productos.filter(p => p.activo && p.stock > 0).length;
+  const poco    = productos.filter(p => p.stock > 0 && p.stock <= 3).length;
+  const agotado = productos.filter(p => p.stock === 0).length;
+
+  document.getElementById("statTotal").textContent   = total;
+  document.getElementById("statActivos").textContent = activos;
+  document.getElementById("statPoco").textContent    = poco;
+  document.getElementById("statAgotado").textContent = agotado;
+}
+
+/* ────────────────────────────────────────────────────────────
+   TABLA DE PRODUCTOS
+────────────────────────────────────────────────────── */
+function updateCatFilter() {
+  // Poblar filtro de tabla
+  const sel = document.getElementById("catFilter");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todas las categorías</option>'
+    + categorias.map(cat => `<option value="${cat}" ${cat===cur?'selected':''}>${cat}</option>`).join("");
+
+  // Poblar select del modal de producto
+  const modalSel = document.getElementById("inpCategoria");
+  const curModal = modalSel.value;
+  modalSel.innerHTML = '<option value="">— Seleccioná una categoría —</option>'
+    + categorias.map(cat => `<option value="${cat}" ${cat===curModal?'selected':''}>${cat}</option>`).join("");
+}
+
+function renderTable() {
+  const tbody = document.getElementById("productsTable");
+  const cards = document.getElementById("mobileCards");
+  const tableWrap = document.getElementById("tableWrap");
+
+  if (!tbody || !cards || !tableWrap) return;
+
+  const search = (document.getElementById("searchInput")?.value || "").toLowerCase();
+  const catF   = document.getElementById("catFilter")?.value || "";
+  const stockF = document.getElementById("stockFilter")?.value || "";
+
+  let lista = productos.filter(p => {
+    if (search && !p.nombre?.toLowerCase().includes(search)) return false;
+    if (catF && p.categoria !== catF) return false;
+    if (stockF === "activo"  && !(p.activo && p.stock > 0)) return false;
+    if (stockF === "agotado" && p.stock !== 0) return false;
+    if (stockF === "bajo"    && !(p.stock > 0 && p.stock <= 3)) return false;
+    if (stockF === "pausado" && p.activo !== false) return false;
+    return true;
+  });
+
+  if (lista.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No se encontraron productos.</td></tr>';
+    cards.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-s)">No se encontraron productos.</div>';
+    return;
+  }
+
+  const isMobile = window.innerWidth < 768;
+
+  /* =========================
+     📱 MOBILE (cards)
+  ========================= */
+  if (isMobile) {
+    tableWrap.style.display = "none";
+    cards.style.display = "block";
+
+    cards.innerHTML = lista.map(p => {
+      const estado = p.activo === false
+        ? "Pausado"
+        : p.stock === 0
+          ? "Sin stock"
+          : p.stock <= 3
+            ? "Stock bajo"
+            : "Activo";
+
+      return `
+      <div class="prod-card-admin">
+        <div class="pca-top">
+          <img class="pca-img"
+               src="${p.imagen || 'https://placehold.co/60x60/242838/8890A8?text=?'}" />
+          <div class="pca-info">
+            <div class="pca-name">${p.nombre}</div>
+            <div class="pca-cat">${p.categoria || ''}</div>
+            <div class="pca-price">${fmt(p.precio)}</div>
+            ${p.talle ? `<div class="pca-talle">Talles: ${p.talle}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="pca-stock">
+          <input class="stock-num-input" type="number" min="0"
+                 id="stock_${p.id}" value="${p.stock}" />
+          <button class="stock-save-btn" onclick="saveStock('${p.id}')">✓</button>
+          <span style="font-size:.75rem;color:var(--text-s)">${estado}</span>
+        </div>
+
+        <div class="pca-actions">
+          <button class="act-btn act-edit" onclick="openEditModal('${p.id}')">Editar</button>
+          <button class="act-btn ${p.activo ? 'act-toggle active' : 'act-toggle'}"
+                  onclick="toggleActivo('${p.id}', ${p.activo})">
+            ${p.activo ? "Pausar" : "Activar"}
+          </button>
+          <button class="act-btn act-delete"
+                  onclick="openConfirmDelete('${p.id}', '${p.nombre?.replace(/'/g,"\\'")}')">
+            Eliminar
+          </button>
+        </div>
+      </div>`;
+    }).join("");
+
+    return;
+  }
+
+  /* =========================
+     🖥️ DESKTOP (tabla)
+  ========================= */
+  tableWrap.style.display = "block";
+  cards.style.display = "none";
+
+  tbody.innerHTML = lista.map(p => {
+    const agotado = p.stock === 0;
+    const poco    = p.stock > 0 && p.stock <= 3;
+
+    const badgeEl = p.activo === false
+      ? `<span class="badge badge-paused">Pausado</span>`
+      : agotado
+        ? `<span class="badge badge-out">Sin stock</span>`
+        : poco
+          ? `<span class="badge badge-low">Stock bajo</span>`
+          : `<span class="badge badge-active">Activo</span>`;
+
+    return `
+    <tr>
+      <td>
+        <img class="prod-thumb"
+             src="${p.imagen || 'https://placehold.co/44x44/242838/8890A8?text=?'}" />
+      </td>
+      <td>
+        <div class="prod-name-cell">${p.nombre}</div>
+        <div class="prod-desc-cell">${p.descripcion || ''}</div>
+        ${p.talle ? `<div style="font-size:.75rem;color:var(--text-s)">Talles: ${p.talle}</div>` : ''}
+      </td>
+      <td style="color:var(--text-s)">${p.categoria || '—'}</td>
+      <td style="font-weight:600">${fmt(p.precio)}</td>
+      <td>
+        <div class="stock-inline">
+          <input class="stock-num-input" type="number" min="0"
+                 id="stock_${p.id}" value="${p.stock}"
+                 onkeydown="if(event.key==='Enter')saveStock('${p.id}')" />
+          <button class="stock-save-btn" onclick="saveStock('${p.id}')">✓</button>
+        </div>
+      </td>
+      <td>${badgeEl}</td>
+      <td>
+        <div class="actions">
+          <button class="act-btn act-edit" onclick="openEditModal('${p.id}')">✏️</button>
+          <button class="act-btn ${p.activo ? 'act-toggle active' : 'act-toggle'}"
+                  onclick="toggleActivo('${p.id}', ${p.activo})">
+            ${p.activo ? "Pausar" : "Activar"}
+          </button>
+          <button class="act-btn act-delete"
+                  onclick="openConfirmDelete('${p.id}', '${p.nombre?.replace(/'/g,"\\'")}')">
+            🗑
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+/* ────────────────────────────────────────────────────────────
+   STOCK RÁPIDO
+────────────────────────────────────────────────────── */
+async function saveStock(id) {
+  const input = document.getElementById("stock_" + id);
+  const val   = parseInt(input.value, 10);
+
+  if (isNaN(val) || val < 0) {
+    showToast("Stock no puede ser negativo", "warning"); 
+    const p = productos.find(x => x.id === id);
+    if (p) input.value = p.stock;
+    return;
+  }
+
+  try {
+    await db.collection("productos").doc(id).update({
+      stock: val,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast("Stock actualizado ✓");
+  } catch(e) {
+    showToast("Error: " + e.message, "error");
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   TOGGLE ACTIVO/PAUSADO
+────────────────────────────────────────────────────── */
+async function toggleActivo(id, activo) {
+  try {
+    await db.collection("productos").doc(id).update({
+      activo: activo === false ? true : false,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(activo === false ? "Producto activado" : "Producto pausado");
+  } catch(e) {
+    showToast("Error: " + e.message, "error");
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   MODAL PRODUCTO — ABRIR / CERRAR
+────────────────────────────────────────────────────── */
+function openProductModal() {
+  editingId = null;
+  fotosActuales = [];
+  tallesSeleccionados = [];
+  fotosActuales = [];
+  document.getElementById("modalTitle").textContent = "Agregar producto";
+  document.getElementById("btnSave").textContent = "Guardar producto";
+  clearForm();
+  renderFotosGrid();
+  renderChips();
+  updateCatFilter();
+  document.getElementById("productModal").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+function openEditModal(id) {
+  const p = productos.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  fotosActuales = p.imagenes ? [...p.imagenes] : (p.imagen ? [p.imagen] : []);
+
+  document.getElementById("modalTitle").textContent = "Editar producto";
+  document.getElementById("btnSave").textContent = "Guardar cambios";
+
+  document.getElementById("inpNombre").value    = p.nombre || "";
+  document.getElementById("inpDesc").value      = p.descripcion || "";
+  document.getElementById("inpCategoria").value = p.categoria || "";
+  tallesSeleccionados = p.talle ? p.talle.split(" / ").map(s=>s.trim()).filter(Boolean) : [];
+  renderChips();
+  renderFotosGrid();
+  document.getElementById("inpPrecio").value    = p.precio || "";
+  document.getElementById("inpStock").value     = p.stock ?? 0;
+  document.getElementById("inpActivo").value    = p.activo === false ? "false" : "true";
+
+  clearErrors();
+  updateCatFilter();
+  document.getElementById("productModal").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+function closeProductModal() {
+  document.getElementById("productModal").classList.remove("show");
+  document.body.style.overflow = "";
+  editingId = null;
+  fotosActuales = [];
+  tallesSeleccionados = [];
+}
+
+function clearForm() {
+  ["inpNombre","inpDesc","inpCategoria","inpTalle","inpPrecio","inpStock"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("inpActivo").value = "true";
+  document.getElementById("inpStock").value = 0;
+  document.getElementById("imgHint").textContent = "";
+  clearErrors();
+}
+
+function clearErrors() {
+  ["fgNombre","fgCategoria","fgPrecio","fgStock"].forEach(id => {
+    document.getElementById(id).classList.remove("err");
+  });
+}
+
+/* ────────────────────────────────────────────────────────────
+   MULTI-FOTO
+────────────────────────────────────────────────────── */
+function renderFotosGrid() {
+  const grid = document.getElementById("fotosPreviewGrid");
+  let html = fotosActuales.map((url, i) => `
+    <div class="foto-preview-item">
+      <img src="${url}" alt="Foto ${i+1}" />
+      <button class="foto-del-btn" onclick="quitarFoto(${i})" title="Quitar">×</button>
+    </div>`).join("");
+  if (fotosActuales.length < 6) {
+    html += `<label class="upload-multi-btn">
+      <span class="plus">+</span><span>Foto</span>
+      <input type="file" accept="image/*" multiple onchange="agregarFotos(this)" />
+    </label>`;
+  }
+  grid.innerHTML = html;
+  document.getElementById("imgHint").textContent =
+    fotosActuales.length === 0
+      ? "Subí una o más fotos. La primera es la imagen principal."
+      : `${fotosActuales.length} foto${fotosActuales.length!==1?'s':''} cargada${fotosActuales.length!==1?'s':''}. La primera es la principal.`;
+}
+
+function quitarFoto(idx) {
+  fotosActuales.splice(idx, 1);
+  renderFotosGrid();
+}
+
+async function agregarFotos(input) {
+  const files = Array.from(input.files).slice(0, 6 - fotosActuales.length);
+  if (files.length === 0) return;
+
+  const btn = document.getElementById("btnSave");
+  btn.disabled = true;
+  const bar  = document.getElementById("uploadProgressBar");
+  const prog = document.getElementById("uploadProgress");
+  prog.classList.add("show");
+
+  for (let i = 0; i < files.length; i++) {
+    bar.style.width = Math.round(((i) / files.length) * 100) + "%";
+    try {
+      const url = await uploadOneImage(files[i], Date.now() + "_" + i);
+      fotosActuales.push(url);
+    } catch(e) {
+      showToast("Error subiendo foto: " + e.message, "error");
+    }
+  }
+
+  bar.style.width = "100%";
+  setTimeout(() => { prog.classList.remove("show"); bar.style.width = "0%"; }, 500);
+  btn.disabled = false;
+  renderFotosGrid();
+  input.value = "";
+}
+
+/* ────────────────────────────────────────────────────────────
+   SUBIR UNA IMAGEN A IMGBB
+────────────────────────────────────────────────────── */
+async function uploadOneImage(file, productoId) {
+  // Convertir archivo a base64 para enviarlo a la Netlify Function proxy
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = e => resolve(e.target.result); // incluye "data:image/...;base64,"
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+
+  const res = await fetch("/.netlify/functions/subir-imagen", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ imagen: base64, nombre: `pupa_${productoId}` }),
+  });
+
+  const data = await res.json();
+  if (res.ok && data.url) return data.url;
+  throw new Error(data.error || "Error al subir imagen");
+}
+
+/* ────────────────────────────────────────────────────────────
+   GUARDAR PRODUCTO (crear o editar)
+────────────────────────────────────────────────────── */
+async function saveProduct() {
+  clearErrors();
+  let ok = true;
+
+  const nombre    = document.getElementById("inpNombre").value.trim();
+  const desc      = document.getElementById("inpDesc").value.trim();
+  const categoria = document.getElementById("inpCategoria").value.trim();
+  const talle     = document.getElementById("inpTalle").value.trim();
+  const precioRaw = parseFloat(document.getElementById("inpPrecio").value);
+  const stockRaw  = parseInt(document.getElementById("inpStock").value, 10);
+  const activo    = document.getElementById("inpActivo").value === "true";
+  // fotosActuales ya contiene las URLs subidas
+
+  /* ── Validaciones ─────────────────────────────── */
+  if (!nombre) {
+    document.getElementById("fgNombre").classList.add("err"); ok = false;
+  }
+  if (!categoria) {
+    document.getElementById("fgCategoria").classList.add("err"); ok = false;
+  }
+  if (isNaN(precioRaw) || precioRaw <= 0) {
+    document.getElementById("precioErrMsg").textContent = "El precio no puede ser $0 o vacío";
+    document.getElementById("fgPrecio").classList.add("err"); ok = false;
+  } else if (precioRaw < CONFIG.precio_minimo) {
+    document.getElementById("precioErrMsg").textContent =
+      `El precio mínimo es $${CONFIG.precio_minimo}`;
+    document.getElementById("fgPrecio").classList.add("err"); ok = false;
+  }
+  if (isNaN(stockRaw) || stockRaw < 0) {
+    document.getElementById("fgStock").classList.add("err"); ok = false;
+  }
+
+  if (!ok) { showToast("Corregí los errores antes de guardar", "warning"); return; }
+
+  const btn = document.getElementById("btnSave");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+  try {
+    /* Determinar ID del documento */
+    const docId = editingId || db.collection("productos").doc().id;
+
+    const data = {
+      nombre, descripcion: desc, categoria, talle,
+      precio:    precioRaw,
+      stock:     stockRaw,
+      activo,
+      imagenes:  fotosActuales,
+      imagen:    fotosActuales[0] || "",   // compatibilidad
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (!editingId) {
+      data.creadoEn = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection("productos").doc(docId).set(data);
+      showToast("Producto creado ✓");
+    } else {
+      await db.collection("productos").doc(docId).update(data);
+      showToast("Producto actualizado ✓");
+    }
+
+    closeProductModal();
+  } catch(e) {
+    showToast("Error al guardar: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingId ? "Guardar cambios" : "Guardar producto";
+  }
+}
+
+
+
+/* ────────────────────────────────────────────────────────────
+   TALLES — Firestore + Chips en modal
+────────────────────────────────────────────────────── */
+let talles = [];           // talles predefinidos desde Firestore
+let tallesSeleccionados = []; // chips seleccionados en el modal
+let unsubscribeTalles = null;
+
+function initTalles() {
+  unsubscribeTalles = db.collection("talles")
+    .orderBy("orden")
+    .onSnapshot(snap => {
+      talles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTalleListAdmin();
+      renderChips();
+    }, err => console.error("Error talles:", err));
+}
+
+/* — Render lista en sección Talles — */
+function renderTalleListAdmin() {
+  const wrap = document.getElementById("talleListAdmin");
+  if (!wrap) return;
+  if (talles.length === 0) {
+    wrap.innerHTML = '<div class="cat-empty">No hay talles todavía.<br>Agregá el primero arriba ☝️</div>';
+    return;
+  }
+  wrap.innerHTML = talles.map(t => `
+    <div class="cat-item">
+      <div class="cat-name">📏 <span>${t.nombre}</span></div>
+      <button class="cat-del-btn" onclick="eliminarTalle('${t.id}','${t.nombre.replace(/'/g,"\'")}')">Eliminar</button>
+    </div>`).join("");
+}
+
+/* — Render chips en el modal de producto — */
+function renderChips() {
+  const wrap = document.getElementById("tallesChips");
+  if (!wrap) return;
+  if (talles.length === 0) {
+    wrap.innerHTML = '<span style="color:var(--text-s);font-size:.8rem">No hay talles cargados. Agregalos desde la sección Talles.</span>';
+    return;
+  }
+  wrap.innerHTML = talles.map(t => {
+    const sel = tallesSeleccionados.includes(t.nombre);
+    return `<span class="talle-chip ${sel?'sel':''}" onclick="toggleChip('${t.nombre.replace(/'/g,"\'")}')">
+      ${t.nombre}
+    </span>`;
+  }).join("");
+  syncTalleInput();
+}
+
+function toggleChip(nombre) {
+  const idx = tallesSeleccionados.indexOf(nombre);
+  if (idx >= 0) tallesSeleccionados.splice(idx, 1);
+  else tallesSeleccionados.push(nombre);
+  renderChips();
+}
+
+function agregarTalleCustom() {
+  const inp = document.getElementById("inpTalleCustom");
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!tallesSeleccionados.includes(val)) {
+    tallesSeleccionados.push(val);
+    renderChips();
+    // Si no existe en los predefinidos, también lo podemos mostrar como chip extra
+    if (!talles.find(t => t.nombre === val)) {
+      const wrap = document.getElementById("tallesChips");
+      const extra = document.createElement("span");
+      extra.className = "talle-chip sel";
+      extra.textContent = val;
+      extra.onclick = () => toggleChip(val);
+      wrap.appendChild(extra);
+    }
+  }
+  inp.value = "";
+  syncTalleInput();
+}
+
+function syncTalleInput() {
+  document.getElementById("inpTalle").value = tallesSeleccionados.join(" / ");
+}
+
+/* — CRUD talles en Firestore — */
+async function agregarTalle() {
+  const inp    = document.getElementById("inpNuevoTalle");
+  const nombre = inp.value.trim();
+  if (!nombre) { showToast("Escribí un nombre de talle", "warning"); return; }
+  if (talles.find(t => t.nombre === nombre)) { showToast("Ese talle ya existe", "warning"); return; }
+  try {
+    await db.collection("talles").add({
+      nombre,
+      orden: talles.length,
+      creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    inp.value = "";
+    showToast(`Talle "${nombre}" agregado ✓`);
+  } catch(e) { showToast("Error: " + e.message, "error"); }
+}
+
+async function eliminarTalle(id, nombre) {
+  try {
+    await db.collection("talles").doc(id).delete();
+    showToast(`Talle "${nombre}" eliminado`);
+  } catch(e) { showToast("Error: " + e.message, "error"); }
+}
+
+/* ────────────────────────────────────────────────────────────
+   CATEGORÍAS — Firestore
+────────────────────────────────────────────────────── */
+let categorias = [];
+let unsubscribeCats = null;
+
+function initCategorias() {
+  unsubscribeCats = db.collection("categorias")
+    .orderBy("nombre")
+    .onSnapshot(snap => {
+      categorias = snap.docs.map(d => d.data().nombre).filter(Boolean);
+      renderCatListAdmin();
+      updateCatFilter();
+    }, err => {
+      console.error("Error categorías:", err);
+    });
+}
+
+function renderCatListAdmin() {
+  const wrap = document.getElementById("catListAdmin");
+  if (!wrap) return;
+
+  if (categorias.length === 0) {
+    wrap.innerHTML = '<div class="cat-empty">No hay categorías todavía.<br>Agregá la primera arriba ☝️</div>';
+    return;
+  }
+
+  wrap.innerHTML = categorias.map(cat => {
+    const count = productos.filter(p => p.categoria === cat).length;
+    const safeId = btoa(unescape(encodeURIComponent(cat))).replace(/[^a-zA-Z0-9]/g, '');
+    return `
+    <div class="cat-item" id="catrow_${safeId}">
+      <div class="cat-name">
+        🏷️ <span>${cat}</span>
+        <span class="cat-count">(${count} producto${count !== 1 ? 's' : ''})</span>
+      </div>
+      <button class="cat-del-btn" onclick="eliminarCategoria('${cat.replace(/'/g,"\'")}', ${count})">
+        Eliminar
+      </button>
+    </div>`;
+  }).join("");
+}
+
+async function agregarCategoria() {
+  const inp  = document.getElementById("inpNuevaCat");
+  const nombre = inp.value.trim();
+
+  if (!nombre) { showToast("Escribí un nombre de categoría", "warning"); return; }
+  if (categorias.includes(nombre)) { showToast("Esa categoría ya existe", "warning"); return; }
+  if (nombre.length > 50) { showToast("Nombre muy largo (máx 50 caracteres)", "warning"); return; }
+
+  try {
+    // Usamos el nombre como ID para evitar duplicados
+    const docId = nombre.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 40);
+    await db.collection("categorias").doc(docId).set({
+      nombre,
+      creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    inp.value = "";
+    showToast(`Categoría "${nombre}" agregada ✓`);
+  } catch(e) {
+    showToast("Error: " + e.message, "error");
+  }
+}
+
+async function eliminarCategoria(nombre, count) {
+  if (count > 0) {
+    showToast(`No podés eliminar "${nombre}" — tiene ${count} producto${count!==1?'s':''} asignado${count!==1?'s':''}`, "warning");
+    return;
+  }
+  try {
+    const snap = await db.collection("categorias").where("nombre", "==", nombre).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    showToast(`Categoría eliminada`);
+  } catch(e) {
+    showToast("Error: " + e.message, "error");
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   ELIMINAR PRODUCTO
+────────────────────────────────────────────────────── */
+let deletingId = null;
+
+function openConfirmDelete(id, nombre) {
+  deletingId = id;
+  document.getElementById("confirmName").textContent = `"${nombre}" — Esta acción no se puede deshacer.`;
+  document.getElementById("confirmDelete").classList.add("show");
+  document.getElementById("btnConfirmDel").onclick = async () => {
+    try {
+      await db.collection("productos").doc(id).delete();
+      showToast("Producto eliminado");
+    } catch(e) {
+      showToast("Error: " + e.message, "error");
+    } finally {
+      closeConfirm();
+    }
+  };
+}
+
+function closeConfirm() {
+  document.getElementById("confirmDelete").classList.remove("show");
+  deletingId = null;
+}
+
+/* ────────────────────────────────────────────────────────────
+   INIT
+────────────────────────────────────────────────────── */
+let lastMode = window.innerWidth < 768;
+
+window.addEventListener("resize", () => {
+  const isMobile = window.innerWidth < 768;
+  if (isMobile !== lastMode) {
+    lastMode = isMobile;
+    renderTable();
+  }
+});
+</script>
+
+</body>
+</html>

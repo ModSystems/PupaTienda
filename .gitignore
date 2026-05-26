@@ -1,0 +1,7 @@
+# Dependencias
+node_modules/
+netlify/functions/node_modules/
+
+# Si alguna vez usás un .env local para testear
+.env
+.env.local
